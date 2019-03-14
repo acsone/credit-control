@@ -8,8 +8,8 @@
                 <separator string="Change the state of the selected lines"
                            colspan="4"/>
                 <newline/>
-                <label string="Warning: you will maybe not be able to revert this operation."
-                       colspan="4"></label>
+                <separator string="Warning: you will maybe not be able to revert this operation."
+                       colspan="4"/>
                 <newline/>
                 <group name="markername">
                         <field name="name"/>
