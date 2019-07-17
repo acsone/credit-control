@@ -46,7 +46,8 @@ class CreditControlMarker(models.TransientModel):
     def _filter_lines(self, lines):
         """get line to be marked filter done lines"""
         line_obj = self.env["credit.control.line"]
-        domain = [("state", "!=", "sent"), ("id", "in", lines.ids)]
+        lines_and_related = lines.mapped(lambda l: l.get_lower_related_lines())
+        domain = [("state", "!=", "sent"), ("id", "in", lines_and_related.ids)]
         return line_obj.search(domain)
 
     @api.model
@@ -67,10 +68,7 @@ class CreditControlMarker(models.TransientModel):
         filtered_lines = self._filter_lines(self.line_ids)
         if not filtered_lines:
             raise UserError(
-                _(
-                    "No lines will be changed. "
-                    "All the selected lines are already done."
-                )
+                _("No lines will be changed. All the selected lines are already done.")
             )
 
         self._mark_lines(filtered_lines, self.name)
