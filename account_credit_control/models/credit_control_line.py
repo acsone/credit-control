@@ -310,6 +310,8 @@ class CreditControlLine(models.Model):
         if "manual_followup" in values:
             self.partner_id.write({"manual_followup": values.get("manual_followup")})
         for line in self:
+            if "state" in values and values.get("state") == "sent":
+                line.write({"auto_process": "no_auto_process"})
             if "auto_process" not in values:
                 line.update_auto_process()
         return res
@@ -318,7 +320,10 @@ class CreditControlLine(models.Model):
     def create(self, vals_list):
         lines = super().create(vals_list)
         for line in lines:
-            line.update_auto_process()
+            if line.state == "sent":
+                line.write({"auto_process": "no_auto_process"})
+            else:
+                line.update_auto_process()
         return lines
 
     def get_highest_related_line(self, exclude_ids=None):
