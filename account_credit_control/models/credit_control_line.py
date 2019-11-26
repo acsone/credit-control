@@ -81,6 +81,7 @@ class CreditControlLine(models.Model):
         comodel_name='res.partner',
         string='Partner',
         required=True,
+        index=True,
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
@@ -139,6 +140,7 @@ class CreditControlLine(models.Model):
     policy_id = fields.Many2one(
         comodel_name='credit.control.policy',
         related='policy_level_id.policy_id',
+        index=True,
         store=True,
     )
     level = fields.Integer(
@@ -158,6 +160,15 @@ class CreditControlLine(models.Model):
         # user is in other company even using related_sudo
         compute='_compute_partner_user_id',
         store=True,
+    )
+    auto_process = fields.Selection(
+        selection=[
+            ('no_auto_process', 'No Auto Process'),
+            ('low_level', 'Low Level'),
+            ('highest_level', 'Highest Level'),
+        ],
+        default="no_auto_process",
+        readonly=True,
     )
 
     @api.depends('partner_id.user_id')
@@ -251,6 +262,18 @@ class CreditControlLine(models.Model):
 
         return new_lines
 
+    def update_auto_process(self, exclude_ids=None):
+        self.ensure_one()
+        if not self.policy_id.auto_process_lower_levels:
+            return
+        highest_related_line = self.get_highest_related_line(
+            exclude_ids=exclude_ids
+        )
+        highest_related_line.write({'auto_process': 'highest_level'})
+        self.get_related_lines(
+            exclude_ids=((exclude_ids or []) + highest_related_line.ids)
+        ).write({'auto_process': 'low_level'})
+
     @api.multi
     def unlink(self):
         for line in self:
@@ -259,6 +282,7 @@ class CreditControlLine(models.Model):
                     _('You are not allowed to delete a credit control '
                       'line that is not in draft state.')
                 )
+            line.update_auto_process(exclude_ids=line.ids)
         return super(CreditControlLine, self).unlink()
 
     @api.multi
@@ -268,7 +292,63 @@ class CreditControlLine(models.Model):
             self.partner_id.write({
                 'manual_followup': values.get('manual_followup'),
             })
+        for line in self:
+            if 'state' in values and values.get('state') == 'sent':
+                line.write({'auto_process': 'no_auto_process'})
+            if ('auto_process' not in values):
+                line.update_auto_process()
         return res
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lines = super(CreditControlLine, self).create(vals_list)
+        for line in lines:
+            if line.state == 'sent':
+                line.write({'auto_process': 'no_auto_process'})
+            else:
+                line.update_auto_process()
+        return lines
+
+    def get_highest_related_line(self, exclude_ids=None):
+        self.ensure_one()
+        return self.get_related_lines(exclude_ids=exclude_ids, limit=1)
+
+    def get_related_lines(self, exclude_ids=None, limit=None):
+        """
+        Return lines from the same group if grouped
+        (ie with same partner, policy and currency).
+
+        The most important line (ie the one to display to the user)
+        is the first one of the returned recordset.
+        """
+        self.ensure_one()
+        if self.policy_id.auto_process_lower_levels:
+            return self.search(
+                [
+                    ('partner_id', '=', self.partner_id.id),
+                    ('currency_id', '=', self.currency_id.id),
+                    ('policy_id', '=', self.policy_id.id),
+                    ('state', 'in', ('draft', 'to_be_sent')),
+                    ('id', 'not in', exclude_ids if exclude_ids else []),
+                ],
+                limit=limit,
+                order='level DESC, date_due ASC',
+            )
+        else:
+            return self
+
+    def get_lower_related_lines(self):
+        """
+        Return lines that will receive the same treatment
+        (ie lines of lower level from the same group if grouped).
+        """
+        self.ensure_one()
+        if self.policy_id.auto_process_lower_levels:
+            return self.get_related_lines().filtered(
+                lambda l: l.level <= self.level
+            )
+        else:
+            return self
 
     def button_schedule_activity(self):
         ctx = self.env.context.copy()
@@ -297,3 +377,14 @@ class CreditControlLine(models.Model):
         action['views'] = [(form.id, 'form')]
         action['res_id'] = self.id
         return action
+
+    def act_show_auto_process_line(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Credit Control Lines"),
+            "res_model": "credit.control.line",
+            "domain": [("id", "in", self.get_lower_related_lines().ids)],
+            "view_mode": "tree,form",
+            "context": self.env.context,
+        }
