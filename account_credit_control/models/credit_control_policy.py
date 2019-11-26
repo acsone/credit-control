@@ -7,6 +7,7 @@ from odoo.exceptions import UserError, ValidationError
 CHANNEL_LIST = [
     ('letter', 'Letter'),
     ('email', 'Email'),
+    ('phone', 'Phone'),
 ]
 
 
@@ -52,6 +53,20 @@ class CreditControlPolicy(models.Model):
     active = fields.Boolean(
         default=True,
     )
+    default_on_partner = fields.Boolean(
+        string="Default Value On Partner"
+    )
+
+    @api.constrains('default_on_partner')
+    @api.multi
+    def _constrains_default_on_partner(self):
+        count = self.search_count([
+            ('default_on_partner', '=', True)
+        ])
+        if count > 1:
+            raise ValidationError(
+                _('You can set only one default on partner!')
+            )
 
     @api.depends("auto_process_lower_levels")
     def _compute_yield_by_level(self):
@@ -67,7 +82,7 @@ class CreditControlPolicy(models.Model):
                 res = credit_control_model.read_group(
                     domain=[
                         ('policy_id', '=', self.id),
-                        ('state', 'in', ('draft', 'to_be_sent')),
+                        ('state', 'in', ('draft', 'to_do')),
                     ],
                     fields=['id'],
                     groupby=['partner_id', 'currency_id'],
@@ -87,7 +102,7 @@ class CreditControlPolicy(models.Model):
                 lines = credit_control_model.search(
                     [
                         ('policy_id', '=', self.id),
-                        ('state', 'in', ('draft', 'to_be_sent')),
+                        ('state', 'in', ('draft', 'to_do')),
                     ]
                 )
                 if lines:
@@ -103,6 +118,8 @@ class CreditControlPolicy(models.Model):
             ('date_maturity', '<=', controlling_date),
             ('reconciled', '=', False),
             ('partner_id', '!=', False),
+            '|', ('credit_control_date', '=', False),
+            ('credit_control_date', '<', controlling_date),
         ]
 
     @api.multi
