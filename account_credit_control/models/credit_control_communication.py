@@ -139,7 +139,10 @@ class CreditControlCommunication(models.Model):
             policy_level = line.policy_level_id
             if prev_group and (
                 group != prev_group
-                or (line.policy_id.yield_by_level and policy_level != prev_policy_level)
+                or (
+                    not line.policy_id.autoprocess_lower_levels
+                    and policy_level != prev_policy_level
+                )
             ):
                 yield (
                     group_lines[0].partner_id,

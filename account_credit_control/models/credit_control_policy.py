@@ -33,7 +33,6 @@ class CreditControlPolicy(models.Model):
         "by this policy, lower level lines for the same partner and policy "
         "will also be processed.",
     )
-    yield_by_level = fields.Boolean(compute="_compute_yield_by_level")
     company_id = fields.Many2one(comodel_name="res.company")
     account_ids = fields.Many2many(
         comodel_name="account.account",
@@ -48,11 +47,6 @@ class CreditControlPolicy(models.Model):
         help="Apply max policy lavel for one partner in a credit control run execution "
         "to have all credit control lines on same communication level",
     )
-
-    @api.depends("auto_process_lower_levels")
-    def _compute_yield_by_level(self):
-        for rec in self:
-            rec.yield_by_level = not rec.auto_process_lower_levels
 
     def write(self, values):
         res = super().write(values)
