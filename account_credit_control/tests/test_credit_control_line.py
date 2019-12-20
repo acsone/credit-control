@@ -121,4 +121,4 @@ class TestCreditControlLine(TransactionCase):
         )
 
         self.assertEqual(ccl_3.auto_process, "no_auto_process")
-        self.assertEqual(ccl_3, ccl_3._get_related_lines())
+        self.assertEqual(ccl_3, ccl_3.get_related_lines())
