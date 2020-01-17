@@ -140,12 +140,12 @@ class CreditControlLine(models.Model):
             ("highest_level", "Highest Level"),
         ],
         help="'No Auto Process' lines are not automatically processed "
-             "with other lines.\n"
-             "'Low Level' lines are automatically processed "
-             "with higher level lines.\n"
-             "'Highest Level' indicates that all 'Low Level' lines for this "
-             "line's partner-policy combination will be automatically "
-             "processed with it.",
+        "with other lines.\n"
+        "'Low Level' lines are automatically processed "
+        "with higher level lines.\n"
+        "'Highest Level' indicates that all 'Low Level' lines for this "
+        "line's partner-policy combination will be automatically "
+        "processed with it.",
         default="no_auto_process",
         readonly=True,
     )
@@ -290,13 +290,13 @@ class CreditControlLine(models.Model):
 
         return new_lines
 
-    def update_auto_process(self, exclude_ids=None):
+    def _update_auto_process(self, exclude_ids=None):
         self.ensure_one()
         if not self.policy_id.auto_process_lower_levels:
             return
-        highest_related_line = self.get_highest_related_line(exclude_ids=exclude_ids)
+        highest_related_line = self._get_highest_related_line(exclude_ids=exclude_ids)
         highest_related_line.write({"auto_process": "highest_level"})
-        self.get_related_lines(
+        self._get_related_lines(
             exclude_ids=((exclude_ids or []) + highest_related_line.ids)
         ).write({"auto_process": "low_level"})
 
@@ -309,7 +309,7 @@ class CreditControlLine(models.Model):
                         "line that is not in draft state."
                     )
                 )
-            line.update_auto_process(exclude_ids=line.ids)
+            line._update_auto_process(exclude_ids=line.ids)
         return super().unlink()
 
     def write(self, values):
@@ -320,7 +320,7 @@ class CreditControlLine(models.Model):
             if "state" in values and values.get("state") == "sent":
                 line.write({"auto_process": "no_auto_process"})
             if "auto_process" not in values:
-                line.update_auto_process()
+                line._update_auto_process()
         return res
 
     @api.model_create_multi
@@ -330,14 +330,14 @@ class CreditControlLine(models.Model):
             if line.state == "sent":
                 line.write({"auto_process": "no_auto_process"})
             else:
-                line.update_auto_process()
+                line._update_auto_process()
         return lines
 
-    def get_highest_related_line(self, exclude_ids=None):
+    def _get_highest_related_line(self, exclude_ids=None):
         self.ensure_one()
-        return self.get_related_lines(exclude_ids=exclude_ids, limit=1)
+        return self._get_related_lines(exclude_ids=exclude_ids, limit=1)
 
-    def get_related_lines(self, exclude_ids=None, limit=None):
+    def _get_related_lines(self, exclude_ids=None, limit=None):
         """
         Return lines from the same group if grouped
         (ie with same partner, policy and currency).
@@ -361,14 +361,14 @@ class CreditControlLine(models.Model):
         else:
             return self
 
-    def get_lower_related_lines(self):
+    def _get_lower_related_lines(self):
         """
         Return lines that will receive the same treatment
         (ie lines of lower level from the same group if grouped).
         """
         self.ensure_one()
         if self.policy_id.auto_process_lower_levels:
-            return self.get_related_lines().filtered(lambda l: l.level <= self.level)
+            return self._get_related_lines().filtered(lambda l: l.level <= self.level)
         else:
             return self
 
@@ -407,7 +407,7 @@ class CreditControlLine(models.Model):
             "type": "ir.actions.act_window",
             "name": _("Credit Control Lines"),
             "res_model": "credit.control.line",
-            "domain": [("id", "in", self.get_lower_related_lines().ids)],
+            "domain": [("id", "in", self._get_lower_related_lines().ids)],
             "view_mode": "list,form",
             "context": self.env.context,
         }
