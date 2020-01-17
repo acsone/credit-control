@@ -153,7 +153,7 @@ class CreditControlCommunication(models.Model):
                 )
                 group_lines = self.env["credit.control.line"].browse()
             if line not in group_lines:
-                group_lines |= line.get_lower_related_lines() or line
+                group_lines |= line._get_lower_related_lines() or line
             prev_group = group
             prev_policy_level = policy_level
         yield (
