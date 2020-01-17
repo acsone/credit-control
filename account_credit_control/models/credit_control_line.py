@@ -337,7 +337,20 @@ class CreditControlLine(models.Model):
         self.ensure_one()
         return self._get_related_lines(exclude_ids=exclude_ids, limit=1)
 
-    def _get_related_lines(self, exclude_ids=None, limit=None):
+    def _get_related_lines_domain(self, exclude_ids=None, level=None):
+        domain = [
+            ("partner_id", "=", self.partner_id.id),
+            ("currency_id", "=", self.currency_id.id),
+            ("policy_id", "=", self.policy_id.id),
+            ("state", "in", ("draft", "to_be_sent")),
+        ]
+        if exclude_ids:
+            domain.append(("id", "not in", exclude_ids))
+        if level:
+            domain.append(("level", "<=", level))
+        return domain
+
+    def _get_related_lines(self, exclude_ids=None, limit=None, level=None):
         """
         Return lines from the same group if grouped
         (ie with same partner, policy and currency).
@@ -348,13 +361,7 @@ class CreditControlLine(models.Model):
         self.ensure_one()
         if self.policy_id.auto_process_lower_levels:
             return self.search(
-                [
-                    ("partner_id", "=", self.partner_id.id),
-                    ("currency_id", "=", self.currency_id.id),
-                    ("policy_id", "=", self.policy_id.id),
-                    ("state", "in", ("draft", "to_be_sent")),
-                    ("id", "not in", exclude_ids if exclude_ids else []),
-                ],
+                self._get_related_lines_domain(exclude_ids, level),
                 limit=limit,
                 order="level DESC, date_due ASC",
             )
@@ -368,7 +375,7 @@ class CreditControlLine(models.Model):
         """
         self.ensure_one()
         if self.policy_id.auto_process_lower_levels:
-            return self._get_related_lines().filtered(lambda l: l.level <= self.level)
+            return self._get_related_lines(level=self.level)
         else:
             return self
 
