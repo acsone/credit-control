@@ -32,9 +32,11 @@ class AccountMove(models.Model):
             or self.company_id.allow_overrisk_invoice_validation
         ):
             return super().post()
+        bypass_wizard = self.env.context.get('bypass_risk_wizard')
+        move_ids_to_post = self.ids
         for invoice in self.filtered(lambda x: x.type == "out_invoice"):
             exception_msg = invoice.risk_exception_msg()
-            if exception_msg:
+            if exception_msg and not bypass_wizard:
                 return (
                     self.env["partner.risk.exceeded.wiz"]
                     .create(
@@ -49,4 +51,6 @@ class AccountMove(models.Model):
                     )
                     .action_show()
                 )
-        return super().post()
+            elif exception_msg and bypass_wizard:
+                move_ids_to_post.remove(invoice.id)
+        return super(AccountMove, self.browse(move_ids_to_post)).post()
