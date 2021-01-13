@@ -13,4 +13,5 @@ class CreditControlCommunication(models.Model):
     @api.model
     def _generate_emails_in_jobs(self, datas):
         comms = self.create(datas)
+        comms._onchange_partner_id()
         comms._generate_emails()
