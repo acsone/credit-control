@@ -20,7 +20,7 @@ class CreditControlEmailer(models.TransientModel):
             comm_obj = self.env['credit.control.communication']
             filtered_lines = self._filter_lines(self.line_ids)
             datas = comm_obj._aggregate_credit_lines(filtered_lines)
-            filtered_lines.write({'state': 'sending'})
+            filtered_lines.write({'state': 'queued'})
             batch = self.env['queue.job.batch'].get_new_batch(
                 'Credit Control Emailer'
             )
