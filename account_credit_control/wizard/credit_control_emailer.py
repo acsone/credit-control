@@ -23,14 +23,22 @@ class CreditControlEmailer(models.TransientModel):
         lines = line_obj.browse(context['active_ids'])
         return self._filter_lines(lines)
 
+    @api.model
+    def _get_email_channels(self):
+        return ["email"]
+
+    @api.model
+    def _get_line_ids_domain(self):
+        return [
+            ("state", "=", "to_be_sent"),
+            ("channel", "in", self._get_email_channels()),
+        ]
+
     line_ids = fields.Many2many(
         comodel_name='credit.control.line',
         string='Credit Control Lines',
         default=lambda self: self._get_line_ids(),
-        domain=[
-            ('state', '=', 'to_be_sent'),
-            ('channel', '=', 'email'),
-        ],
+        domain=lambda self: self._get_line_ids_domain(),
     )
 
     @api.model
