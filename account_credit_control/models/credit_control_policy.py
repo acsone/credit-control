@@ -242,7 +242,10 @@ class CreditControlPolicy(models.Model):
             }
         else:
             report = (
-                _('Policy "<b>%s</b>" has not generated any Credit Control Lines.<br/>')
+                _(
+                    'Policy "<b>%s</b>" has not generated any '
+                    "Credit Control Lines.<br/>"
+                )
                 % self.name
             )
         return (manual_lines, policy_lines_generated, report)
@@ -350,7 +353,7 @@ class CreditControlPolicyLevel(models.Model):
             )
             if smallest_level.computation_mode == "previous_date":
                 raise ValidationError(
-                    _("The smallest level can not be of type Previous Reminder")
+                    _("The smallest level can not be " "of type Previous Reminder")
                 )
 
     def _previous_level(self):
@@ -376,7 +379,8 @@ class CreditControlPolicyLevel(models.Model):
     @staticmethod
     def _net_days_get_boundary():
         return (
-            " (mv_line.date_maturity + %(delay)s)::date <= date(%(controlling_date)s)"
+            " (mv_line.date_maturity + %(delay)s)::date <= "
+            "date(%(controlling_date)s)"
         )
 
     @staticmethod
@@ -402,7 +406,7 @@ class CreditControlPolicyLevel(models.Model):
             return fnc()
         else:
             raise NotImplementedError(
-                _("Can not get function for computation mode: %s is not implemented")
+                _("Can not get function for computation mode: " "%s is not implemented")
                 % (fname,)
             )
 
