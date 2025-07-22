@@ -134,7 +134,11 @@ class ResPartner(models.Model):
     )
     credit_policy = fields.Char()
     risk_allow_edit = fields.Boolean(compute="_compute_risk_allow_edit")
-    credit_limit = fields.Float(tracking=True)
+    credit_limit = fields.Float(
+        tracking=True,
+        groups="account.group_account_invoice,account.group_account_readonly,account_financial_risk.group_account_financial_risk_user",
+    )
+
     credit_currency = fields.Selection(
         selection=[
             ("company", "Company Currency"),
