@@ -3,6 +3,7 @@
 # Copyright 2018 Access Bookings Ltd (https://accessbookings.com)
 # Copyright 2020 Manuel Calero - Tecnativa
 # Copyright 2023 Tecnativa - Víctor Martínez
+# Copyright 2019 ACSONE SA/NV
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 from odoo import _, api, fields, models
@@ -113,61 +114,74 @@ class CreditControlCommunication(models.Model):
     ):
         """Return credit lines related to a partner and a policy level"""
         cr_line_obj = self.env["credit.control.line"]
-        cr_lines = cr_line_obj.search(
-            [
-                ("id", "in", line_ids),
-                ("partner_id", "=", partner_id),
-                ("policy_level_id", "=", level_id),
-                ("currency_id", "=", currency_id),
-                ("company_id", "=", company_id),
-            ]
+        domain = [
+            ("id", "in", line_ids),
+            ("partner_id", "=", partner_id),
+            ("currency_id", "=", currency_id),
+            ("company_id", "=", company_id),
+            ("policy_level_id", "=", level_id),
+        ]
+        return cr_line_obj.search(domain, order="level DESC")
+
+    @api.model
+    def _sql_credit_lines_groups(self):
+        """Create a query to return:
+        partner, level, currency, company
+        """
+        return (
+            "SELECT DISTINCT"
+            " partner_id,"
+            " policy_level_id,"
+            " policy_level.level,"
+            " line.currency_id,"
+            " line.company_id"
+            " FROM credit_control_line AS line"
+            " JOIN credit_control_policy_level as policy_level"
+            "   ON (line.policy_level_id = policy_level.id)"
+            " WHERE line.id in %s"
+            " ORDER BY policy_level.level, line.currency_id"
         )
-        return cr_lines
+
+    @api.model
+    def _get_credit_line_groups(self, lines):
+        """Returns key groups to be processed"""
+        # Needed for related stored fields
+        # are recomputed before executing the SQL
+        lines.flush_recordset()
+        sql = self._sql_credit_lines_groups()
+        cr = self.env.cr
+        cr.execute(sql, (tuple(lines.ids),))
+        return cr.dictfetchall()
+
+    @api.model
+    def _prepare_communication_data(self, cr_lines):
+        line = cr_lines[0]
+        company = line.company_id or self.env.company
+        return {
+            "credit_control_line_ids": [(6, 0, cr_lines.ids)],
+            "partner_id": line.partner_id.id,
+            "policy_level_id": line.policy_level_id.id,
+            "currency_id": line.currency_id.id or company.currency_id.id,
+            "company_id": company.id,
+        }
 
     @api.model
     def _aggregate_credit_lines(self, lines):
         """Aggregate credit control line by partner, level, and currency"""
         if not lines:
             return []
-        # Needed for related stored fields
-        # are recomputed before executing the SQL
-        lines.flush_recordset()
-        sql = (
-            "SELECT distinct partner_id, policy_level_id, "
-            " credit_control_line.currency_id, "
-            " credit_control_policy_level.level, "
-            " credit_control_line.company_id "
-            " FROM credit_control_line JOIN credit_control_policy_level "
-            "   ON (credit_control_line.policy_level_id = "
-            "       credit_control_policy_level.id)"
-            " WHERE credit_control_line.id in %s"
-            " ORDER by credit_control_policy_level.level, "
-            "          credit_control_line.currency_id"
-        )
-        cr = self.env.cr
-        cr.execute(sql, (tuple(lines.ids),))
-        res = cr.dictfetchall()
         datas = []
-        for group in res:
-            data = {}
-            level_lines = self._get_credit_lines(
+        for group in self._get_credit_line_groups(lines):
+            grouped_lines = self._get_credit_lines(
                 lines.ids,
                 group["partner_id"],
                 group["policy_level_id"],
                 group["currency_id"],
                 group["company_id"],
             )
-            company = (
-                self.env["res.company"].browse(group["company_id"])
-                if group["company_id"]
-                else self.env.company
-            )
-            company_currency = company.currency_id
-            data["credit_control_line_ids"] = [(6, 0, level_lines.ids)]
-            data["partner_id"] = group["partner_id"]
-            data["policy_level_id"] = group["policy_level_id"]
-            data["currency_id"] = group["currency_id"] or company_currency.id
-            data["company_id"] = group["company_id"] or company.id
+            if not grouped_lines:
+                continue
+            data = self._prepare_communication_data(grouped_lines)
             datas.append(data)
         return datas
 
