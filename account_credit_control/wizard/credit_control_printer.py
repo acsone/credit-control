@@ -19,7 +19,7 @@ class CreditControlPrinter(models.TransientModel):
         context = self.env.context
         if context.get("active_model") != "credit.control.line":
             return False
-        return context.get("active_ids", False)
+        return context.get("active_ids")
 
     mark_as_sent = fields.Boolean(
         string="Mark letter lines as done",
