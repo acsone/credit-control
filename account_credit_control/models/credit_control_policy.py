@@ -321,12 +321,12 @@ class CreditControlPolicyLevel(models.Model):
     channel_email = fields.Boolean(string="By e-mail")
     channel_letter = fields.Boolean(string="By post")
     channel_phone = fields.Boolean(string="By phone")
-    custom_text = fields.Text(string="Custom Message", required=True, translate=True)
+    custom_text = fields.Html(string="Custom Message", required=True, translate=True)
     mail_show_invoice_detail = fields.Boolean(string="Show Invoice Details in mail")
     custom_mail_text = fields.Html(
         string="Custom Mail Message", required=True, translate=True
     )
-    custom_text_after_details = fields.Text(
+    custom_text_after_details = fields.Html(
         string="Custom Message after details", translate=True
     )
 
