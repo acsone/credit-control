@@ -71,7 +71,7 @@ class CreditControlLine(models.Model):
     partner_id = fields.Many2one(
         comodel_name="res.partner",
         required=True,
-        readonly=False,
+        index=True,
     )
     commercial_partner_id = fields.Many2one(
         comodel_name="res.partner",
@@ -116,6 +116,7 @@ class CreditControlLine(models.Model):
     policy_id = fields.Many2one(
         comodel_name="credit.control.policy",
         related="policy_level_id.policy_id",
+        index=True,
         store=True,
     )
     level = fields.Integer(
