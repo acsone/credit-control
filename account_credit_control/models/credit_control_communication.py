@@ -174,8 +174,11 @@ class CreditControlCommunication(models.Model):
     @api.model
     def _generate_comm_from_credit_lines(self, lines):
         """Generate a communication object per aggregation of credit lines."""
-        datas = self._aggregate_credit_lines(lines)
-        comms = self.create(datas)
+        lines_with_comm = lines.filtered("communication_id")
+        lines_without_comm = lines - lines_with_comm
+        comms = lines_with_comm.mapped("communication_id")
+        datas = self._aggregate_credit_lines(lines_without_comm)
+        comms |= self.create(datas)
         comms._onchange_partner_id()
         return comms
 
